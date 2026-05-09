@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📦 物流追踪仪表板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .header .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card .icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-card .label {
+            color: #888;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .stat-card.in-transit { border-left: 4px solid #3498db; }
+        .stat-card.delivered { border-left: 4px solid #2ecc71; }
+        .stat-card.alert { border-left: 4px solid #e74c3c; }
+        .stat-card.pending { border-left: 4px solid #f39c12; }
+        
+        .filters {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        .filters input, .filters select {
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .filters input:focus, .filters select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .tracking-table {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .tracking-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .tracking-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .tracking-table td {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .tracking-table tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .status-in-transit { background: #e3f2fd; color: #1976d2; }
+        .status-delivered { background: #e8f5e9; color: #388e3c; }
+        .status-pending { background: #fff3e0; color: #f57c00; }
+        .status-alert { background: #ffebee; color: #d32f2f; }
+        .status-expired { background: #f5f5f5; color: #616161; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.5s;
+        }
+        .progress-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .timeline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+        .timeline-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #667eea;
+        }
+        .timeline-dot.delivered { background: #2ecc71; }
+        .timeline-dot.pending { background: #f39c12; }
+        
+        .customer-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .customer-name {
+            font-weight: 600;
+            color: #333;
+        }
+        .customer-country {
+            font-size: 12px;
+            color: #888;
+            margin-top: 2px;
+        }
+        
+        .tracking-number {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #667eea;
+            font-size: 13px;
+        }
+        
+        .last-event {
+            font-size: 13px;
+            color: #666;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .update-time {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #888;
+        }
+        .empty-state .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .tracking-table {
+                overflow-x: auto;
+            }
+            .tracking-table table {
+                min-width: 800px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 物流追踪仪表板</h1>
+            <div class="subtitle">
+            本地数据 | 最后更新: <span id="lastUpdate">--</span>
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card in-transit">
+                <div class="icon">🚚</div>
+                <div class="number" id="statInTransit">0</div>
+                <div class="label">运输中</div>
+            </div>
+            <div class="stat-card delivered">
+                <div class="icon">✅</div>
+                <div class="number" id="statDelivered">0</div>
+                <div class="label">已签收</div>
+            </div>
+            <div class="stat-card alert">
+                <div class="icon">⚠️</div>
+                <div class="number" id="statAlert">0</div>
+                <div class="label">异常/延迟</div>
+            </div>
+            <div class="stat-card pending">
+                <div class="icon">⏳</div>
+                <div class="number" id="statPending">0</div>
+                <div class="label">待发货</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <input type="text" id="searchInput" placeholder="搜索追踪号/客户名..." onkeyup="filterTable()">
+            <select id="countryFilter" onchange="filterTable()">
+                <option value="">所有国家</option>
+            </select>
+            <select id="statusFilter" onchange="filterTable()">
+                <option value="">所有状态</option>
+                <option value="In transit">运输中</option>
+                <option value="Delivered">已签收</option>
+                <option value="Alert">异常</option>
+                <option value="Pending">待发货</option>
+            </select>
+            <select id="carrierFilter" onchange="filterTable()">
+                <option value="">所有批运商</option>
+            </select>
+        </div>
+        
+        <div class="tracking-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>追踪号</th>
+                        <th>客户信息</th>
+                        <th>物流状态</th>
+                        <th>物流进度</th>
+                        <th>目的地</th>
+                        <th>批运商</th>
+                        <th>最新动态</th>
+                        <th>更新时间</th>
+                    </tr>
+                </thead>
+                <tbody id="trackingTableBody">
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <div class="icon">📦</div>
+                            <div>正在加载数据...</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let trackingData = [];
+        
+        // 加载数据
+        async function loadData() {
+            try {
+                let results;
+                
+                // 检查是否有内嵌数据（解决file协议CORS问题）
+                if (typeof EMBEDDED_DATA !== 'undefined') {
+                    results = EMBEDDED_DATA;
+                } else {
+                    // 尝试加载缓存的查询结果
+                    const response = await fetch('./tracking_results.json?t=' + Date.now());
+                    results = await response.json();
+                }
+                
+                // 合并数据 - 适配新JSON格式
+                trackingData = results.orders.map(order => {
+                    return {
+                        tracking: order.number,
+                        customer: order.customer,
+                        country: order.country,
+                        product: order.product,
+                        amount: order.amount,
+                        shipDate: order.ship_date,
+                        estArrival: order.est_delivery,
+                        status: order.status,
+                        statusCN: order.statusCN,
+                        carrier: order.carrier,
+                        days: order.days,
+                        events: order.events || [],
+                        lastEvent: order.lastEvent,
+                        queryTime: order.queryTime,
+                        displayStatus: getDisplayStatus(order.status),
+                        progress: calculateProgress(order.ship_date, order.est_delivery, order.days),
+                        daysInTransit: order.days || calculateDays(order.ship_date)
+                    };
+                });
+                
+                updateStats();
+                updateFilters();
+                renderTable();
+                
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleString('zh-CN');
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                document.getElementById('trackingTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <div class="icon">⚠️</div>
+                            <div>数据加载失败，请确认文件是否存在</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        // 解析CSV
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                const obj = {};
+                headers.forEach((header, i) => {
+                    obj[header] = values[i]?.trim() || '';
+                });
+                return obj;
+            });
+        }
+        
+        // 获取显示状态
+        function getDisplayStatus(status) {
+            if (!status) return { text: '未查询', class: 'status-pending' };
+            const statusMap = {
+                'In transit': { text: '运输中', class: 'status-in-transit' },
+                'Delivered': { text: '已签收', class: 'status-delivered' },
+                'Info received': { text: '待发货', class: 'status-pending' },
+                'Alert': { text: '异常', class: 'status-alert' },
+                'Expired': { text: '已过期', class: 'status-expired' }
+            };
+            return statusMap[status] || { text: status, class: 'status-pending' };
+        }
+        
+        // 计算进度
+        function calculateProgress(shipDate, estArrival, days) {
+            if (!shipDate || !estArrival) return 0;
+            const start = new Date(shipDate);
+            const end = new Date(estArrival);
+            const now = new Date();
+            const total = (end - start) / (1000 * 60 * 60 * 24);
+            const current = (now - start) / (1000 * 60 * 60 * 24);
+            return Math.min(Math.round((current / total) * 100), 100);
+        }
+        
+        // 计算天数
+        function calculateDays(shipDate) {
+            if (!shipDate) return 0;
+            const start = new Date(shipDate);
+            const now = new Date();
+            return Math.floor((now - start) / (1000 * 60 * 60 * 24));
+        }
+        
+        // 更新统计
+        function updateStats() {
+            const stats = {
+                inTransit: 0,
+                delivered: 0,
+                alert: 0,
+                pending: 0
+            };
+            
+            trackingData.forEach(order => {
+                if (order.status === 'In transit') stats.inTransit++;
+                else if (order.status === 'Delivered') stats.delivered++;
+                else if (order.status === 'Alert' || order.status === 'Expired') stats.alert++;
+                else stats.pending++;
+            });
+            
+            document.getElementById('statInTransit').textContent = stats.inTransit;
+            document.getElementById('statDelivered').textContent = stats.delivered;
+            document.getElementById('statAlert').textContent = stats.alert;
+            document.getElementById('statPending').textContent = stats.pending;
+        }
+        
+        // 更新筛选器
+        function updateFilters() {
+            const countries = [...new Set(trackingData.map(d => d.country).filter(Boolean))];
+            const carriers = [...new Set(trackingData.map(d => d.carrier).filter(Boolean))];
+            
+            const countrySelect = document.getElementById('countryFilter');
+            countries.forEach(c => {
+                countrySelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+            
+            const carrierSelect = document.getElementById('carrierFilter');
+            carriers.forEach(c => {
+                carrierSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+        
+        // 渲染表格
+        function renderTable(data = trackingData) {
+            const tbody = document.getElementById('trackingTableBody');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <div class="icon">🔍</div>
+                            <div>没有找到匹配的订单</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = data.map(order => {
+                const status = getDisplayStatus(order.status);
+                const progress = order.progress || 0;
+                const daysText = order.daysInTransit ? `已运输 ${order.daysInTransit} 天` : '未知';
+                const lastEventText = order.lastEvent || (order.events && order.events[0] ? order.events[0].description : '暂无更新');
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class="tracking-number">${order.tracking || order.number}</div>
+                            <div style="font-size: 12px; color: #888; margin-top: 4px;">${order.product || order.note || ''}</div>
+                        </td>
+                        <td>
+                            <div class="customer-info">
+                                <span class="customer-name">${order.customer || '未知'}</span>
+                                <span class="customer-country">${order.country || ''}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="status-badge ${status.class}">${status.text}</span>
+                        </td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="fill" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="progress-text">${daysText}</div>
+                        </td>
+                        <td>${order.country || '-'}</td>
+                        <td>${order.carrier || '-'}</td>
+                        <td>
+                            <div class="last-event">${lastEventText}</div>
+                        </td>
+                        <td>
+                            <div class="update-time">${order.queryTime ? new Date(order.queryTime).toLocaleString('zh-CN') : '-'}</div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // 筛选表格
+        function filterTable() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const country = document.getElementById('countryFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const carrier = document.getElementById('carrierFilter').value;
+            
+            const filtered = trackingData.filter(order => {
+                const matchSearch = !search || 
+                    (order.number?.toLowerCase().includes(search)) ||
+                    (order.customer?.toLowerCase().includes(search)) ||
+                    (order.product?.toLowerCase().includes(search));
+                
+                const matchCountry = !country || order.country === country;
+                const matchStatus = !status || order.status === status;
+                const matchCarrier = !carrier || order.carrier === carrier;
+                
+                return matchSearch && matchCountry && matchStatus && matchCarrier;
+            });
+            
+            renderTable(filtered);
+        }
+        
+        // 初始化
+        loadData();
+        
+        // 每5分钟自动刷新
+        setInterval(loadData, 300000);
+    </script>
+
+<script>
+// 内嵌的追踪数据（解决file协议CORS问题）
+const EMBEDDED_DATA = {
+  "lastUpdated": "2026-05-09T16:18:17.323023",
+  "totalOrders": 4,
+  "orders": [
+    {
+      "number": "UL136395183YP",
+      "note": "Nancy BelloMacedo",
+      "customer": "Nancy BelloMacedo",
+      "country": "美国",
+      "product": "对毛",
+      "amount": "",
+      "ship_date": "2026/5/6",
+      "est_delivery": "2026/5/15",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023"
+    },
+    {
+      "number": "UL136379013YP",
+      "note": "订单#002",
+      "customer": "Chudney Carr",
+      "country": "美国",
+      "product": "电子产品",
+      "amount": "$85 ",
+      "ship_date": "2026/5/6",
+      "est_delivery": "2026/5/17",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023"
+    },
+    {
+      "number": "UL136573480YP",
+      "note": "样品",
+      "customer": "Stefanie ",
+      "country": "瑞士",
+      "product": "毛",
+      "amount": "",
+      "ship_date": "2026/5/6",
+      "est_delivery": "",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023"
+    },
+    {
+      "number": "UL123105007YP",
+      "note": "分段",
+      "customer": "Jennyfer Galvan",
+      "country": "墨西哥",
+      "product": "",
+      "amount": "",
+      "ship_date": "",
+      "est_delivery": "",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023"
+    }
+  ]
+};
+</script>
+<script>
+// 内嵌的追踪数据（解决file协议CORS问题）
+const EMBEDDED_DATA = {
+  "lastUpdated": "2026-05-09T16:18:17.323023",
+  "totalOrders": 4,
+  "orders": [
+    {
+      "number": "UL136395183YP",
+      "note": "Nancy BelloMacedo",
+      "customer": "Nancy BelloMacedo",
+      "country": "美国",
+      "product": "对毛",
+      "amount": "",
+      "ship_date": "2026/5/6",
+      "est_delivery": "2026/5/15",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023",
+      "delivered_date": null,
+      "is_delivered": false,
+      "order_created_date": "2026-05-06 02:32"
+    },
+    {
+      "number": "UL136379013YP",
+      "note": "订单#002",
+      "customer": "Chudney Carr",
+      "country": "美国",
+      "product": "电子产品",
+      "amount": "$85 ",
+      "ship_date": "2026/5/6",
+      "est_delivery": "2026/5/17",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023",
+      "delivered_date": null,
+      "is_delivered": false,
+      "order_created_date": "2026-05-06 02:32"
+    },
+    {
+      "number": "UL136573480YP",
+      "note": "样品",
+      "customer": "Stefanie ",
+      "country": "瑞士",
+      "product": "毛",
+      "amount": "",
+      "ship_date": "2026/5/6",
+      "est_delivery": "",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023",
+      "delivered_date": null,
+      "is_delivered": false,
+      "order_created_date": "2026-05-06 02:32"
+    },
+    {
+      "number": "UL123105007YP",
+      "note": "分段",
+      "customer": "Jennyfer Galvan",
+      "country": "墨西哥",
+      "product": "",
+      "amount": "",
+      "ship_date": "",
+      "est_delivery": "",
+      "carrier": "USPS",
+      "status": "In transit",
+      "statusCN": "运输中",
+      "days": "3",
+      "events": [
+        {
+          "date": "2026-05-09 08:42",
+          "description": "Yanwen facility - Outbound"
+        },
+        {
+          "date": "2026-05-06 02:32",
+          "description": "South Montebello, CA, US 90640, Shipping Order Created."
+        }
+      ],
+      "lastEvent": "Yanwen facility - Outbound",
+      "queryTime": "2026-05-09T16:18:17.323023",
+      "delivered_date": null,
+      "is_delivered": false,
+      "order_created_date": "2026-05-06 02:32"
+    }
+  ]
+};
+</script>
+</body>
+
+</html>
